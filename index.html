@@ -7,9 +7,41 @@
     <script src="https://cdn.mxpnl.com/libs/mixpanel-platform/build/mixpanel-platform.v0.latest.min.js"></script>
   </head>
   <body class="mixpanel-platform-body">
-    <h1>Hello, World!</h1>
+  	<div class="mixpanel-platform-section">
+      <div id="dateSelect" style="float: left;"></div>
+      <div id="minSelect" style="float: right;"></div>
+      <div style="clear: both;"></div>
+    </div>
+    <div id="table"></div>
     <script>
-      // Run queries and display results here
+      var script = "function main() { return Events({from_date: params.from,to_date: params.to}) .groupByUser(function(state, events) { state = state || {event_list: '', num_events: 0}; for (var i = 0; i < events.length; i++) { state.event_list += events[i].name + ', '; state.num_events++; } return state; }) .filter(function(item) {return item.value.num_events >= params['num events']}) .groupBy([function(item) {return item.value.event_list}], mixpanel.reducer.count()) .map(function(item) {return {'count': item.value, 'event list': item.key[0].slice(0,-2)}})}";
+      var dateSelect  = $('#dateSelect').MPDatepicker();
+      var eventTable  = $('#table').MPTable({showPercentages: false, firstColHeader: 'Frequency Rank'});
+      var options = {items: [{label: '1', value: 1},{label: '2', value: 2},{label: '3', value: 3},{label: '4', value: 4},{label: '5', value: 5}]};
+      var dropdown = $('#minSelect').MPSelect(options);
+      function runQuery(minEvents) {
+        var params = {'from': dateSelect.MPDatepicker('value').from.toISOString().slice(0,-14), 'to': dateSelect.MPDatepicker('value').to.toISOString().slice(0,-14), 'num events': dropdown.MPSelect('value')};
+        MP.api.custom_query(script, params).done(function(results) {
+          var obj = {};
+          for (var i = 0; i < results.length; i++) {
+          	obj[results[i]['event list']] = results[i]['count'];
+          }
+          var res = [];
+          for (key in obj) {
+            res.push([key, obj[key]])
+          }
+          res.sort(function(a,b){return a[1] - b[1]});
+          res.reverse();
+          var res2 = [];
+          for (i = 0; i < res.length; i++) {
+            res2.push({'Count': res[i][1], 'Event sequence': res[i][0]});
+          }
+          eventTable.MPTable('setData', res2);
+        });
+      }
+      runQuery(dropdown.MPSelect('value'));
+      dropdown.on('change', function (e, selection) { runQuery(selection) });
+      dateSelect.on('change', function () {runQuery(dropdown.MPSelect('value'))});
     </script>
   </body>
 </html>
